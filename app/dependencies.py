@@ -21,10 +21,7 @@ async def get_db() -> AsyncSession:
     """Dependency that provides a database session for each request."""
     async_session_factory = Database.get_session_factory()
     async with async_session_factory() as session:
-        try:
-            yield session
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        yield session
         
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
