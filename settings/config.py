@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     smtp_port: int = Field(default=2525, description="SMTP port for sending emails")
     smtp_username: str = Field(default='your-mailtrap-username', description="Username for SMTP server")
     smtp_password: str = Field(default='your-mailtrap-password', description="Password for SMTP server")
+    # Celery
+    broker_url: str = Field(default='memory://', description="URL for broker used by Celery")
 
 
     class Config:
