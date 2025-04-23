@@ -1,10 +1,10 @@
 from app.celery_app import celery
 
-import logging
+# import logging
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 @celery.task(name="account.verification")
-def verification_task():
-    logger.info("Verification task started")
+def verification_task(*args, **kwargs):
+    # logger.info("Verification task started")
     return True

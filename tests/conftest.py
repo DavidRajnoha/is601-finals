@@ -9,6 +9,9 @@ Each directory has its own conftest.py with appropriate fixtures.
 """
 
 import pytest
+import os
+os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"      # block all entry-points
+
 
 # This hook helps pytest understand how to collect and run tests
 def pytest_configure(config):
@@ -16,6 +19,8 @@ def pytest_configure(config):
     Configure the pytest environment.
     This runs at the beginning of a pytest session.
     """
+    config.pluginmanager.import_plugin("celery.contrib.pytest")
+
     # Register custom markers
     config.addinivalue_line("markers", "unit: mark a test as a unit test")
     config.addinivalue_line("markers", "integration: mark a test that requires database or external services")
@@ -23,3 +28,4 @@ def pytest_configure(config):
     # Nothing else is needed here - fixtures are defined in their respective conftest.py files:
     # - tests/unit_tests/conftest.py - For unit test fixtures
     # - tests/integration_tests/conftest.py - For integration test fixtures
+

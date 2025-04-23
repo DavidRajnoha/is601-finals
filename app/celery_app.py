@@ -1,8 +1,12 @@
 from celery import Celery
-from settings.config import settings
+
+from app.dependencies import get_settings
+
+settings = get_settings()
 
 celery = Celery(
     "myapp",
     broker=settings.broker_url,
+    backend="rpc://"
 )
 celery.autodiscover_tasks(["app.tasks"])
