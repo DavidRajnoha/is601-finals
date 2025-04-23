@@ -79,5 +79,5 @@ EXPOSE 8000
 
 RUN which python && python -c "import sys; print(sys.executable); import uvicorn; print(uvicorn.__file__)"
 
-# Use ENTRYPOINT to specify the executable when the container starts.
-ENTRYPOINT ["python", "-m", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python", "-m"]
+CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

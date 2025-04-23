@@ -1,8 +1,8 @@
 # tests/test_account_tasks.py
 import pytest
 
-from app.tasks.account import verification_task
-from app.celery_app import celery
+from app.celery.tasks import verification_task
+from app.celery.celery_app import celery
 
 def test_verification_task_run_directly_logs_and_returns_true():
     """

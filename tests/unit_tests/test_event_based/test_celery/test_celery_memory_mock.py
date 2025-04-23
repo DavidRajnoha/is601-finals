@@ -1,6 +1,6 @@
-from app.tasks.account import verification_task
+from app.celery.tasks import verification_task
 import pytest
-from app.celery_app import celery as real_app
+from app.celery.celery_app import celery as real_app
 
 
 @real_app.task(name="celery.ping")

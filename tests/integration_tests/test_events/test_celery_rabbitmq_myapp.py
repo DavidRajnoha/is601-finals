@@ -1,6 +1,7 @@
 import pytest
-from app.tasks.account import verification_task
-from app.celery_app import celery as real_app
+from app.celery.tasks import verification_task
+from app.celery.celery_app import celery as real_app
+
 
 @pytest.fixture(scope="session")
 def celery_app():
@@ -12,7 +13,10 @@ def use_celery_app_trap():
 
 @pytest.fixture(scope="session")
 def celery_worker_parameters():
-    return {"shutdown_timeout": 30}
+    return {"without_heartbeat": False,
+            "shutdown_timeout": 30,
+            "perform_ping_check": False,
+            }
 
 @pytest.mark.rabbitmq
 def test_broker_real_app(celery_app, celery_worker):
