@@ -1,16 +1,16 @@
+# tests/test_email_service.py
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from app.services.email_service import EmailService
-from app.models.user_model import User
+from unittest.mock import MagicMock
 from uuid import uuid4
 
+from app.services.email_service import EmailService
+from app.models.user_model import User
 
 @pytest.fixture
 def mock_template_manager():
-    template_manager = MagicMock()
-    template_manager.render_template.return_value = "<html>Test email content</html>"
-    return template_manager
-
+    tm = MagicMock()
+    tm.render_template.return_value = "<html>Test email content</html>"
+    return tm
 
 @pytest.fixture
 def email_service(mock_template_manager):
@@ -18,12 +18,11 @@ def email_service(mock_template_manager):
     service.smtp_client = MagicMock()
     return service
 
-
 @pytest.fixture
 def mock_user():
-    user_id = uuid4()
+    uid = uuid4()
     return User(
-        id=user_id,
+        id=uid,
         nickname="test_user",
         email="test@example.com",
         first_name="Test",
@@ -31,61 +30,64 @@ def mock_user():
         verification_token="test-verification-token"
     )
 
-
-@pytest.mark.asyncio
-async def test_send_user_email(email_service):
-    """Test sending a user email."""
-    # Arrange
+def test_send_user_email(email_service):
+    """
+    Test that send_user_email:
+      - renders the correct template,
+      - calls smtp_client.send_email with the right subject, html, and recipient.
+    """
     user_data = {
         "name": "Test User",
         "email": "test@example.com",
         "verification_url": "http://example.com/verify"
     }
-    
-    # Act
-    await email_service.send_user_email(user_data, "email_verification")
-    
-    # Assert
+
+    email_service.send_user_email(user_data, "email_verification")
+
     email_service.template_manager.render_template.assert_called_once_with(
         "email_verification", **user_data
     )
     email_service.smtp_client.send_email.assert_called_once_with(
-        "Verify Your Account", 
-        "<html>Test email content</html>", 
+        "Verify Your Account",
+        "<html>Test email content</html>",
         "test@example.com"
     )
 
-
-@pytest.mark.asyncio
-async def test_send_user_email_invalid_type(email_service):
-    """Test sending a user email with an invalid email type."""
-    # Arrange
+def test_send_user_email_invalid_type(email_service):
+    """
+    Sending with an invalid email_type should raise ValueError.
+    """
     user_data = {
         "name": "Test User",
         "email": "test@example.com"
     }
-    
-    # Act & Assert
+
     with pytest.raises(ValueError, match="Invalid email type"):
-        await email_service.send_user_email(user_data, "invalid_type")
+        email_service.send_user_email(user_data, "invalid_type")
 
+def test_send_verification_email_constructs_payload_and_calls(email_service, mock_user, monkeypatch):
+    """
+    Test that send_verification_email builds the correct payload and
+    delegates to send_user_email.
+    """
+    # Patch the base URL
+    monkeypatch.setattr(
+        "settings.config.settings.server_base_url",
+        "http://testserver.com/"
+    )
 
-@pytest.mark.asyncio
-async def test_send_verification_email(email_service, mock_user, monkeypatch):
-    """Test sending a verification email."""
-    # Patch the settings.server_base_url
-    monkeypatch.setattr("settings.config.settings.server_base_url", "http://testserver.com/")
-    
-    # Mock the send_user_email method
-    email_service.send_user_email = AsyncMock()
-    
-    # Act
-    await email_service.send_verification_email(mock_user)
-    
-    # Assert
+    # Replace send_user_email with a MagicMock
+    email_service.send_user_email = MagicMock()
+
+    # Call the high-level method
+    email_service.send_verification_email(mock_user)
+
+    # It should call send_user_email exactly once
     email_service.send_user_email.assert_called_once()
-    # Check that the verification URL was constructed correctly
-    call_args = email_service.send_user_email.call_args[0][0]
-    assert call_args["verification_url"] == f"http://testserver.com/verify-email/{mock_user.id}/test-verification-token"
-    assert call_args["name"] == "Test"
-    assert call_args["email"] == "test@example.com" 
+
+    # Inspect the payload dict passed as the first positional argument
+    payload = email_service.send_user_email.call_args[0][0]
+    expected_url = f"http://testserver.com/verify-email/{mock_user.id}/{mock_user.verification_token}"
+    assert payload["verification_url"] == expected_url
+    assert payload["name"] == mock_user.first_name
+    assert payload["email"] == mock_user.email

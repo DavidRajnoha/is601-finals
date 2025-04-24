@@ -1,9 +1,16 @@
 from celery import Celery
 from kombu import Exchange, Queue
 
+from app.database import Database
 from app.dependencies import get_settings
 
 settings = get_settings()
+
+Database.initialize(
+    database_url     = None,
+    sync_database_url= settings.sync_database_url,
+    echo             = settings.debug
+)
 
 celery = Celery(
     "myapp",

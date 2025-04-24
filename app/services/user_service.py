@@ -6,14 +6,14 @@ from pydantic import ValidationError
 from sqlalchemy import func, null, update, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_email_service, get_settings
+from app.dependencies import get_settings
 from app.models.user_model import User
 from app.schemas.user_schemas import UserCreate, UserUpdate
 from app.utils.nickname_gen import generate_nickname
 from app.utils.security import generate_verification_token, hash_password, verify_password
 from uuid import UUID
-from app.services.email_service import EmailService
 from app.models.user_model import UserRole
+from app.celery.tasks import verify_email_task
 import logging
 
 settings = get_settings()
@@ -50,15 +50,14 @@ class UserService:
         return await cls._fetch_user(session, email=email)
 
     @classmethod
-    async def create(cls, session: AsyncSession, user_data: Dict[str, str],
-                     email_service: EmailService) -> Optional[User]:
+    async def create(cls, session: AsyncSession, user_data: Dict[str, str]) -> Optional[User]:
         try:
             new_user = await cls._create_user_in_db(session, user_data)
 
             if not new_user.email_verified:
                 new_user.verification_token = generate_verification_token()
                 await session.commit()
-                await email_service.send_verification_email(new_user)
+                verify_email_task.delay(new_user.id)
 
             return new_user
 
@@ -136,8 +135,8 @@ class UserService:
         return result.scalars().all() if result else []
 
     @classmethod
-    async def register_user(cls, session: AsyncSession, user_data: Dict[str, str], get_email_service) -> Optional[User]:
-        return await cls.create(session, user_data, get_email_service)
+    async def register_user(cls, session: AsyncSession, user_data: Dict[str, str]) -> Optional[User]:
+        return await cls.create(session, user_data)
     
 
     @classmethod

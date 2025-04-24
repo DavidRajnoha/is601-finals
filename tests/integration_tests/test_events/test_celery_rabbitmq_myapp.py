@@ -19,7 +19,7 @@ def celery_worker_parameters():
             }
 
 @pytest.mark.rabbitmq
-def test_broker_real_app(celery_app, celery_worker):
+def test_broker_real_app(ping_broker, celery_app, celery_worker):
     """
     Smoke-test the production Celery stack.
 

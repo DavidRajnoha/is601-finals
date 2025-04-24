@@ -1,7 +1,12 @@
 from builtins import Exception, dict, str
+from contextlib import contextmanager
+from typing import Generator
+
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+
 from app.database import Database
 from app.utils.template_manager import TemplateManager
 from app.services.email_service import EmailService
@@ -19,10 +24,21 @@ def get_email_service() -> EmailService:
 
 async def get_db() -> AsyncSession:
     """Dependency that provides a database session for each request."""
-    async_session_factory = Database.get_session_factory()
+    async_session_factory = Database.get_async_factory()
     async with async_session_factory() as session:
         yield session
-        
+
+@contextmanager
+def get_sync_db() -> Generator[Session, None, None]:
+    sess = Database.get_sync_factory()()
+    try:
+        yield sess
+        sess.commit()
+    except:
+        sess.rollback()
+        raise
+    finally:
+        sess.close()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 

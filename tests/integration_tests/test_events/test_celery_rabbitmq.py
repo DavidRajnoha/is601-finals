@@ -1,4 +1,6 @@
 import pytest
+from kombu.exceptions import OperationalError
+
 from app.dependencies import get_settings
 
 settings = get_settings()
@@ -12,7 +14,7 @@ def celery_config():
 
 
 @pytest.mark.rabbitmq
-def test_broker(celery_app, celery_worker):
+def test_broker(ping_broker, celery_app, celery_worker):
     """
     Smoke-test the production Celery stack.
 
