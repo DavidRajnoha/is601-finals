@@ -22,7 +22,10 @@ class EmailService:
         subject_map = {
             'email_verification': "Verify Your Account",
             'password_reset': "Password Reset Instructions",
-            'account_locked': "Account Locked Notification"
+            'account_locked': "Account Locked Notification",
+            'account_unlocked': "Account Unlocked Notification",
+            'role_upgrade': "Role Upgrade Notification",
+            'professional_status_upgrade': "Professional Status Upgrade Notification"
         }
 
         if email_type not in subject_map:
@@ -40,3 +43,32 @@ class EmailService:
             "verification_url": verification_url,
             "email": user.email
         }, 'email_verification')
+
+    def send_account_locked_email(self, user: User):
+        logger.error(f"Sending account locked email to {user.email}")
+        return self.send_user_email({
+            "name": user.first_name,
+            "email": user.email
+        }, 'account_locked')
+
+    def send_account_unlocked_email(self, user: User):
+        logger.error(f"Sending account unlocked email to {user.email}")
+        return self.send_user_email({
+            "name": user.first_name,
+            "email": user.email
+        }, 'account_unlocked')
+
+    def send_role_upgrade_email(self, user: User, new_role: str):
+        logger.error(f"Sending role upgrade email to {user.email}")
+        return self.send_user_email({
+            "name": user.first_name,
+            "new_role": new_role,
+            "email": user.email
+        }, 'role_upgrade')
+
+    def send_professional_status_upgrade_email(self, user: User):
+        logger.error(f"Sending professional status upgrade email to {user.email}")
+        return self.send_user_email({
+            "name": user.first_name,
+            "email": user.email
+        }, 'professional_status_upgrade')

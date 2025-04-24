@@ -26,10 +26,14 @@ celery.conf.update(
     task_default_exchange_type="direct",
     task_queues=[
         Queue("default", Exchange("default"), routing_key="default"),
-        Queue("emails", Exchange("emails"), routing_key="account.send_verification"),
+        Queue("account_notifications", Exchange("account_notifications"), routing_key="account.notifications"),
     ],
     task_routes={
-        "account.send_verification": {"queue": "emails", "routing_key": "account.send_verification"},
+        "account.send_verification": {"queue": "account_notifications", "routing_key": "account.notifications"},
+        "account.locked": {"queue": "account_notifications", "routing_key": "account.notifications"},
+        "account.unlocked": {"queue": "account_notifications", "routing_key": "account.notifications"},
+        "account.role_upgrade": {"queue": "account_notifications", "routing_key": "account.notifications"},
+        "account.professional_status_upgrade": {"queue": "account_notifications", "routing_key": "account.notifications"},
         "reports.generate": {"queue": "reports", "routing_key": "reports.generate"},
     },
 )
