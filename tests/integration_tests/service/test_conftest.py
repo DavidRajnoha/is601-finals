@@ -2,7 +2,6 @@
 
 from builtins import len
 import pytest
-from httpx import AsyncClient
 from sqlalchemy.future import select
 
 from app.models.user_model import User, UserRole

@@ -8,7 +8,6 @@ This file is minimal since tests are now divided into:
 Each directory has its own conftest.py with appropriate fixtures.
 """
 
-import pytest
 import os
 os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"      # block all entry-points
 
