@@ -6,14 +6,20 @@ from pydantic import ValidationError
 from sqlalchemy import func, null, update, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_email_service, get_settings
+from app.dependencies import get_settings
 from app.models.user_model import User
 from app.schemas.user_schemas import UserCreate, UserUpdate
 from app.utils.nickname_gen import generate_nickname
 from app.utils.security import generate_verification_token, hash_password, verify_password
 from uuid import UUID
-from app.services.email_service import EmailService
 from app.models.user_model import UserRole
+from app.celery.tasks import (
+    verify_email_task,
+    account_locked_task,
+    account_unlocked_task,
+    role_upgrade_task,
+    professional_status_upgrade_task
+)
 import logging
 
 settings = get_settings()
@@ -50,15 +56,14 @@ class UserService:
         return await cls._fetch_user(session, email=email)
 
     @classmethod
-    async def create(cls, session: AsyncSession, user_data: Dict[str, str],
-                     email_service: EmailService) -> Optional[User]:
+    async def create(cls, session: AsyncSession, user_data: Dict[str, str]) -> Optional[User]:
         try:
             new_user = await cls._create_user_in_db(session, user_data)
 
             if not new_user.email_verified:
                 new_user.verification_token = generate_verification_token()
                 await session.commit()
-                await email_service.send_verification_email(new_user)
+                verify_email_task.delay(new_user.id)
 
             return new_user
 
@@ -136,9 +141,9 @@ class UserService:
         return result.scalars().all() if result else []
 
     @classmethod
-    async def register_user(cls, session: AsyncSession, user_data: Dict[str, str], get_email_service) -> Optional[User]:
-        return await cls.create(session, user_data, get_email_service)
-    
+    async def register_user(cls, session: AsyncSession, user_data: Dict[str, str]) -> Optional[User]:
+        return await cls.create(session, user_data)
+
 
     @classmethod
     async def login_user(cls, session: AsyncSession, email: str, password: str) -> Optional[User]:
@@ -158,6 +163,8 @@ class UserService:
                 user.failed_login_attempts += 1
                 if user.failed_login_attempts >= settings.max_login_attempts:
                     user.is_locked = True
+                    # Schedule account locked notification
+                    account_locked_task.delay(user.id)
                 session.add(user)
                 await session.commit()
         return None
@@ -173,11 +180,15 @@ class UserService:
         hashed_password = hash_password(new_password)
         user = await cls.get_by_id(session, user_id)
         if user:
+            was_locked = user.is_locked
             user.hashed_password = hashed_password
             user.failed_login_attempts = 0  # Resetting failed login attempts
             user.is_locked = False  # Unlocking the user account, if locked
             session.add(user)
             await session.commit()
+            # If the account was locked and is now unlocked, send notification
+            if was_locked:
+                account_unlocked_task.delay(user.id)
             return True
         return False
 
@@ -187,9 +198,13 @@ class UserService:
         if user and user.verification_token == token:
             user.email_verified = True
             user.verification_token = None  # Clear the token once used
+            old_role = user.role
             user.role = UserRole.AUTHENTICATED
             session.add(user)
             await session.commit()
+            # If the role was upgraded, send notification
+            if old_role != UserRole.AUTHENTICATED:
+                role_upgrade_task.delay(user.id, UserRole.AUTHENTICATED.name)
             return True
         return False
 
@@ -205,7 +220,7 @@ class UserService:
         result = await session.execute(query)
         count = result.scalar()
         return count
-    
+
     @classmethod
     async def unlock_user_account(cls, session: AsyncSession, user_id: UUID) -> bool:
         user = await cls.get_by_id(session, user_id)
@@ -214,5 +229,49 @@ class UserService:
             user.failed_login_attempts = 0  # Optionally reset failed login attempts
             session.add(user)
             await session.commit()
+            # Schedule account unlocked notification
+            account_unlocked_task.delay(user.id)
+            return True
+        return False
+
+    @classmethod
+    async def upgrade_user_role(cls, session: AsyncSession, user_id: UUID, new_role: UserRole) -> bool:
+        """
+        Upgrade a user's role to a new role.
+
+        :param session: The AsyncSession instance for database access.
+        :param user_id: The ID of the user to upgrade.
+        :param new_role: The new role to assign to the user.
+        :return: True if the role was upgraded successfully, False otherwise.
+        """
+        user = await cls.get_by_id(session, user_id)
+        if user and user.role != new_role:
+            old_role = user.role
+            user.role = new_role
+            session.add(user)
+            await session.commit()
+            # Schedule role upgrade notification
+            role_upgrade_task.delay(user.id, new_role.name)
+            logger.info(f"User {user_id} role upgraded from {old_role.name} to {new_role.name}")
+            return True
+        return False
+
+    @classmethod
+    async def upgrade_professional_status(cls, session: AsyncSession, user_id: UUID) -> bool:
+        """
+        Upgrade a user's professional status.
+
+        :param session: The AsyncSession instance for database access.
+        :param user_id: The ID of the user to upgrade.
+        :return: True if the professional status was upgraded successfully, False otherwise.
+        """
+        user = await cls.get_by_id(session, user_id)
+        if user and not user.is_professional:
+            user.update_professional_status(True)
+            session.add(user)
+            await session.commit()
+            # Schedule professional status upgrade notification
+            professional_status_upgrade_task.delay(user.id)
+            logger.info(f"User {user_id} professional status upgraded")
             return True
         return False

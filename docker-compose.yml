@@ -51,6 +51,46 @@ services:
     networks:
       - app-network
 
+  rabbitmq:
+    image: rabbitmq:management
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    networks:
+      - app-network
+    ports:
+      - "15672:15672"
+
+  worker:
+    build: .
+    container_name: celery_worker
+    # re-use the same image/Dockerfile as “web”,
+    # so you get your app code & dependencies
+    command: >
+      celery -A app.celery.celery_app.celery
+             worker
+             --loglevel=INFO
+             --concurrency=${CELERY_CONCURRENCY:-2}
+             --hostname=worker@%h
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    networks:
+      - app-network
+    depends_on:
+      - rabbitmq
+      - redis
+
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 volumes:
   postgres-data:
   pgadmin-data:

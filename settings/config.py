@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     refresh_token_expire_minutes: int = 1440  # 24 hours for refresh token
     # Database configuration
     database_url: str = Field(default='postgresql+asyncpg://user:password@postgres/myappdb', description="URL for connecting to the database")
+    sync_database_url: str = Field(default='postgresql://user:password@postgres/myappdb', description="URL for connecting to the database")
+    test_sync_database_url: str = Field(default='postgresql://user:password@postgres/myappdb', description="URL for connecting to the database")
+
 
     # Optional: If preferring to construct the SQLAlchemy database URL from components
     postgres_user: str = Field(default='user', description="PostgreSQL username")
@@ -40,6 +43,8 @@ class Settings(BaseSettings):
     smtp_port: int = Field(default=2525, description="SMTP port for sending emails")
     smtp_username: str = Field(default='your-mailtrap-username', description="Username for SMTP server")
     smtp_password: str = Field(default='your-mailtrap-password', description="Password for SMTP server")
+    # Celery
+    broker_url: str = Field(default='memory://', description="URL for broker used by Celery")
 
 
     class Config:
