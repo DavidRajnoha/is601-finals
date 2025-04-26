@@ -8,10 +8,10 @@ Welcome to the User Management System project - an epic open-source adventure cr
 
 ### [Instructor Video - Project Overview and Tips](https://youtu.be/gairLNAp6mA) 🎥
 
-- [Introduction to the system features and overview of the project - please read](system_documentation.md) 📚
-- [Project Setup Instructions](setup.md) ⚒️
-- [Features to Select From](features.md) 🛠️
-- [About the Project](about.md)🔥🌟
+- [Introduction to the system features and overview of the project - please read](docs/system_documentation.md) 📚
+- [Project Setup Instructions](docs/setup.md) ⚒️
+- [Features to Select From](docs/features.md) 🛠️
+- [About the Project](docs/about.md)🔥🌟
 
 ## Goals and Objectives: Unlock Your Coding Superpowers 🎯🏆🌟
 
@@ -36,7 +36,7 @@ Get ready to ascend to new heights with this legendary project:
 
 This project requires effective time management and a well-planned strategy, but fear not - you've got this! Follow these steps to ensure a successful (and sane!) project outcome:
 
-1. **Select a Feature**: [Choose a feature](features.md) from the provided list of additional improvements that sparks your interest and aligns with your goals like a laser beam. ✨⭐🎯 This is your chance to shine!
+1. **Select a Feature**: [Choose a feature](docs/features.md) from the provided list of additional improvements that sparks your interest and aligns with your goals like a laser beam. ✨⭐🎯 This is your chance to shine!
 
 2. **Quality Assurance (QA)**: Thoroughly test the system's major functionalities related to your chosen feature and identify at least 5 issues or bugs like a true detective. Create GitHub issues for each identified problem, providing detailed descriptions and steps to reproduce - the more detail, the merrier! 🔍🐞🕵️‍♀️ Leave no stone unturned!
 
