@@ -6,16 +6,9 @@ This Python test file utilizes pytest to manage database states and HTTP clients
 built with FastAPI and SQLAlchemy. It includes detailed fixtures to mock the testing environment, 
 ensuring each test is run in isolation with a consistent setup.
 """
-import asyncio
-# Standard library imports
-from builtins import Exception, range, str
-from datetime import timedelta
-from unittest.mock import AsyncMock, patch
-from uuid import uuid4
-
 # Third-party imports
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -24,12 +17,8 @@ from faker import Faker
 # Application-specific imports
 from app.main import app
 from app.database import Base, Database
-from app.models.user_model import User, UserRole
 from app.dependencies import get_db, get_settings
-from app.utils.security import hash_password
-from app.utils.template_manager import TemplateManager
-from app.services.email_service import EmailService
-from app.services.jwt_service import create_access_token
+
 
 fake = Faker()
 
@@ -39,17 +28,6 @@ TEST_SYNC_DATABASE_URL = settings.test_sync_database_url
 engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
 AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """
-    Create a single asyncio event loop for the entire test session.
-    Overrides the default function-scoped event_loop from pytest-asyncio.
-    """
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest.fixture(scope="function")
@@ -71,8 +49,8 @@ async def _create_all_tables(engine):
         await connection.run_sync(Base.metadata.create_all)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def shared_memory_engine(event_loop):
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def shared_memory_engine():
     """
     Provide a single in-memory SQLite engine for the entire test session.
 
@@ -86,10 +64,9 @@ def shared_memory_engine(event_loop):
         future=True,
     )
 
-    event_loop.run_until_complete(_create_all_tables(engine))
+    await _create_all_tables(engine)
     yield engine
-
-    event_loop.run_until_complete(engine.dispose())
+    await engine.dispose()
 
 @pytest.fixture(scope="function", autouse=True)
 async def refresh_schema(shared_memory_engine):
