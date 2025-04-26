@@ -6,85 +6,30 @@ This Python test file utilizes pytest to manage database states and HTTP clients
 built with FastAPI and SQLAlchemy. It includes detailed fixtures to mock the testing environment, 
 ensuring each test is run in isolation with a consistent setup.
 """
-
+import asyncio
 # Standard library imports
-from builtins import Exception, range, str
+from builtins import range, str
 from datetime import timedelta
-from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from unittest.mock import AsyncMock
 
 # Third-party imports
 import pytest
-from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from faker import Faker
 
 # Application-specific imports
-from app.main import app
-from app.database import Base, Database
 from app.models.user_model import User, UserRole
-from app.dependencies import get_db, get_settings
+from app.dependencies import get_settings
 from app.utils.security import hash_password
-from app.utils.template_manager import TemplateManager
 from app.services.email_service import EmailService
 from app.services.jwt_service import create_access_token
 
 fake = Faker()
 
 settings = get_settings()
-TEST_DATABASE_URL = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
-TEST_SYNC_DATABASE_URL = settings.test_sync_database_url
-engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
-AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
 
 
-@pytest.fixture
-def email_service():
-    # Assuming the TemplateManager does not need any arguments for initialization
-    template_manager = TemplateManager()
-    email_service = EmailService(template_manager=template_manager)
-    return email_service
 
-
-# this is what creates the http client for your api tests
-@pytest.fixture(scope="function")
-async def async_client(db_session):
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        app.dependency_overrides[get_db] = lambda: db_session
-        try:
-            yield client
-        finally:
-            app.dependency_overrides.clear()
-
-@pytest.fixture(scope="session", autouse=True)
-def initialize_database():
-    try:
-        Database.initialize(settings.database_url, settings.test_sync_database_url)
-    except Exception as e:
-        pytest.fail(f"Failed to initialize the database: {str(e)}")
-
-# this function setup and tears down (drops tales) for each test function, so you have a clean database for each test.
-@pytest.fixture(scope="function", autouse=True)
-async def setup_database():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        # you can comment out this line during development if you are debugging a single test
-         await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
-
-@pytest.fixture(scope="function")
-async def db_session(setup_database):
-    async with AsyncSessionScoped() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
 
 @pytest.fixture(scope="function")
 async def locked_user(db_session):
@@ -233,4 +178,4 @@ def email_service():
         mock_service = AsyncMock(spec=EmailService)
         mock_service.send_verification_email.return_value = None
         mock_service.send_user_email.return_value = None
-        return mock_service 
+        return mock_service
