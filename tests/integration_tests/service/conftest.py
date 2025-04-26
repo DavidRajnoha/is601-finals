@@ -6,7 +6,7 @@ This Python test file utilizes pytest to manage database states and HTTP clients
 built with FastAPI and SQLAlchemy. It includes detailed fixtures to mock the testing environment, 
 ensuring each test is run in isolation with a consistent setup.
 """
-
+import os
 # Standard library imports
 from builtins import Exception, range, str
 from datetime import timedelta
@@ -34,6 +34,13 @@ engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
 AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
 
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    base = os.path.dirname(__file__)
+    for item in items:
+        if str(item.fspath).startswith(base):
+            item.add_marker(pytest.mark.integration)
 
 
 # this is what creates the http client for your api tests
