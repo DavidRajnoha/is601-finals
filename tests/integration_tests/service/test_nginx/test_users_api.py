@@ -56,7 +56,6 @@ async def test_update_user_email_denied_via_nginx(
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Issue with database caching")
 async def test_update_user_email_allowed_via_nginx(
         nginx_client, admin_user, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
@@ -82,7 +81,6 @@ async def test_login_success_via_nginx(nginx_client, verified_user):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Issue with database caching")
 async def test_login_locked_user_via_nginx(nginx_client, locked_user):
     data = urlencode({"username": locked_user.email,
                       "password": "MySuperPassword$1234"})
