@@ -1,10 +1,14 @@
 from builtins import Exception, bool, classmethod, int, str
 from datetime import datetime, timezone
 import secrets
+from time import sleep
 from typing import Optional, Dict, List
+
+import backoff
+from asyncpg.exceptions import InvalidCachedStatementError
 from pydantic import ValidationError
 from sqlalchemy import func, null, update, select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, NotSupportedError, InternalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_settings
 from app.models.user_model import User
@@ -27,15 +31,41 @@ logger = logging.getLogger(__name__)
 
 class UserService:
     @classmethod
-    async def _execute_query(cls, session: AsyncSession, query):
+    @backoff.on_exception(
+        backoff.expo,
+        (NotSupportedError, InternalError),
+        max_tries=2,
+        jitter=None,
+    )
+    async def _backoff_query(cls, session: AsyncSession, query):
         try:
+            logger.error(f"Backoff before committing query: {query}")
             result = await session.execute(query)
             await session.commit()
-            return result
+            logger.error("Backoff after committing query:")
+            print(f"Rusult: {result}")
+        except (NotSupportedError, InternalError) as e:
+            logger.error(f"Error during query execution: {e}, backing off and retrying.")
+            await session.rollback()
+            sleep(1)
+            raise
+        return result
+
+    @classmethod
+    async def _execute_query(cls, session: AsyncSession, query):
+        """
+        Executes & commits.  If the 'cached statement invalid'
+        error fires, backoff will rollback and retry once.
+        """
+        try:
+            logger.error("Executing query:")
+            result = await cls._backoff_query(session, query)
+            logger.error("Query executed successfully.")
         except SQLAlchemyError as e:
             logger.error(f"Database error: {e}")
             await session.rollback()
             return None
+        return result
 
     @classmethod
     async def _fetch_user(cls, session: AsyncSession, **filters) -> Optional[User]:
@@ -113,9 +143,10 @@ class UserService:
             query = update(User).where(User.id == user_id).values(**validated_data).execution_options(synchronize_session="fetch")
             await cls._execute_query(session, query)
             updated_user = await cls.get_by_id(session, user_id)
+            logger.error(f"Updated user: {updated_user}")
             if updated_user:
                 session.refresh(updated_user)  # Explicitly refresh the updated user object
-                logger.info(f"User {user_id} updated successfully.")
+                logger.error(f"User {user_id} updated successfully.")
                 return updated_user
             else:
                 logger.error(f"User {user_id} not found after update attempt.")

@@ -20,6 +20,7 @@ Key Highlights:
 
 from builtins import dict, int, len, str
 from datetime import timedelta
+from logging import getLogger
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -36,6 +37,8 @@ from app.services.email_service import EmailService
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 settings = get_settings()
+
+logger = getLogger(__name__)
 @router.get("/users/{user_id}", response_model=UserResponse, name="get_user", tags=["User Management Requires (Admin or Manager Roles)"])
 async def get_user(user_id: UUID, request: Request, db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme), current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))):
     """
@@ -204,7 +207,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Async
     if await UserService.is_account_locked(session, form_data.username):
         raise HTTPException(status_code=400, detail="Account locked due to too many failed login attempts.")
 
+    logger.error(f"form_data: {form_data}")
+    logger.error(f"form_data.username: {form_data.username}")
     user = await UserService.login_user(session, form_data.username, form_data.password)
+    logger.error(f"user: {user}")
+
     if user:
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
 
